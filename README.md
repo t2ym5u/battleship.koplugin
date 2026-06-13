@@ -2,6 +2,15 @@
 
 A Battleship Puzzle (Solitaire Battleships) plugin for [KOReader](https://github.com/koreader/koreader).
 
+
+## Screenshot
+
+*(Screenshot to be added.)*
+
+## Rules
+
+Find the hidden fleet in the grid. Row and column clues show the total number of ship segments in each line. Ships are placed horizontally or vertically and cannot touch each other (even diagonally).
+
 ## Concept
 
 Solitaire Battleships (also called Bimaru) is a logic puzzle version of the
@@ -12,7 +21,7 @@ using logic alone — no guessing required.
 The fleet typically consists of: 1 battleship (4), 2 cruisers (3), 3 destroyers (2),
 4 submarines (1).
 
-## Planned Features
+## Features
 
 - **Multiple grid sizes** — 8×8 (classic), 10×10 (extended)
 - **Three difficulty levels** — Easy (more revealed cells), Medium, Hard
@@ -35,6 +44,7 @@ The fleet typically consists of: 1 battleship (4), 2 cruisers (3), 3 destroyers 
 | Check progress | Tap **Check** |
 | New game | Tap **New game** |
 | Change difficulty | Tap **Diff** |
+| Show rules | Tap **Rules** |
 
 ## Why e-ink friendly?
 
