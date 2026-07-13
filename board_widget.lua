@@ -81,13 +81,13 @@ function BattleshipBoardWidget:_hitTest(gx, gy)
     return nil
 end
 
-function BattleshipBoardWidget:onCellTap(ges)
+function BattleshipBoardWidget:onCellTap(_, ges)
     local r, c = self:_hitTest(ges.pos.x, ges.pos.y)
     if r and self.cellTapCallback then self.cellTapCallback(r, c) end
     return true
 end
 
-function BattleshipBoardWidget:onCellHold(ges)
+function BattleshipBoardWidget:onCellHold(_, ges)
     local r, c = self:_hitTest(ges.pos.x, ges.pos.y)
     if r and self.cellHoldCallback then self.cellHoldCallback(r, c) end
     return true
@@ -132,12 +132,12 @@ function BattleshipBoardWidget:paintTo(bb, x, y)
             if mark == BattleshipBoard.MARK_SHIP or (given and board.solution[r][c]) then
                 -- Draw a small filled rectangle to indicate ship
                 local s = math.max(2, math.floor(cell * 0.4))
-                local ox = cx + (cell - s) // 2
-                local oy = cy + (cell - s) // 2
+                local ox = cx + math.floor((cell - s) / 2)
+                local oy = cy + math.floor((cell - s) / 2)
                 bb:paintRect(ox, oy, s, s, C_FG)
             elseif mark == BattleshipBoard.MARK_WATER or (given and not board.solution[r][c]) then
                 centeredText(bb, "\xC2\xB7", self.sym_face,
-                    cx + cell//2, cy + cell//2, C_FG)
+                    cx + math.floor(cell / 2), cy + math.floor(cell / 2), C_FG)
             end
         end
     end
@@ -159,15 +159,15 @@ function BattleshipBoardWidget:paintTo(bb, x, y)
 
     -- Row clues
     for r = 1, n do
-        local cy = y + cw + (r-1)*cell + cell//2
-        local cx = x + cw + gw + cw//2
+        local cy = y + cw + (r-1)*cell + math.floor(cell / 2)
+        local cx = x + cw + gw + math.floor(cw / 2)
         centeredText(bb, tostring(board.row_clues[r] or 0), self.num_face, cx, cy, C_FG)
     end
 
     -- Col clues
     for c = 1, n do
-        local cx = x + cw + (c-1)*cell + cell//2
-        local cy = y + cw + gh + cw//2
+        local cx = x + cw + (c-1)*cell + math.floor(cell / 2)
+        local cy = y + cw + gh + math.floor(cw / 2)
         centeredText(bb, tostring(board.col_clues[c] or 0), self.num_face, cx, cy, C_FG)
     end
 end
