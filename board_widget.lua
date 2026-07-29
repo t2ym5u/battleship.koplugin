@@ -160,7 +160,7 @@ function BattleshipBoardWidget:paintTo(bb, x, y)
     -- Row clues
     for r = 1, n do
         local cy = y + cw + (r-1)*cell + math.floor(cell / 2)
-        local cx = x + cw + gw + math.floor(cw / 2)
+        local cx = x + math.floor(cw / 2)
         centeredText(bb, tostring(board.row_clues[r] or 0), self.num_face, cx, cy, C_FG)
     end
 
