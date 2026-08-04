@@ -114,6 +114,8 @@ function BattleshipScreen:buildLayout()
         self.board_widget,
     }
 
+    self.status_text:setMaxWidth(is_landscape and btn_width or (self.board_widget.w + frame_extra))
+
     local bottom_buttons = ButtonTable:new{
         shrink_unneeded_width = true,
         width   = btn_width,
