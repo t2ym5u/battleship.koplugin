@@ -29,6 +29,7 @@ The fleet typically consists of: 1 battleship (4), 2 cruisers (3), 3 destroyers 
 - **Row/column counter** — remaining segments shown and updated in real time
 - **Auto-water** — automatically fills water around completed rows/columns
 - **Check** — highlights contradictions with the clue counts
+- **Hint** — two taps: the first says which cell is about to give, the second acts on it. A cell that contradicts the solution is always reported before a fresh one is revealed
 - **Reveal solution** — shows the full solution
 - **Undo** — step back through your moves
 - **Auto-save** — game state saved and restored on next launch
