@@ -5,7 +5,7 @@ A Battleship Puzzle (Solitaire Battleships) plugin for [KOReader](https://github
 
 ## Screenshot
 
-*(Screenshot to be added.)*
+![Screenshot](images/battleship.png)
 
 ## Rules
 
