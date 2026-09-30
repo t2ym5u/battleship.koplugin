@@ -1,5 +1,6 @@
 local UndoStack  = require("undo_stack")
 local grid_utils = require("grid_utils")
+local Hint      = require("hint")
 
 local shuffle    = grid_utils.shuffle
 local emptyGrid  = grid_utils.emptyGrid
@@ -251,6 +252,17 @@ end
 -- ---------------------------------------------------------------------------
 -- Persistence
 -- ---------------------------------------------------------------------------
+
+-- _checkWin() refuses any cell left unknown, so water is as much a move as a
+-- ship here and both get offered.
+Hint.install(BattleshipBoard, {
+    getUser     = function(b, r, c) return b.marks[r][c] end,
+    getSolution = function(b, r, c) return b.solution[r][c] and MARK_SHIP or MARK_WATER end,
+    isEmpty     = function(v) return v == MARK_UNKNOWN end,
+    isGiven     = function(b, r, c) return b.given[r][c] == true end,
+    setCell     = function(b, r, c, v) return b:setMark(r, c, v) end,
+    blank       = MARK_UNKNOWN,
+})
 
 function BattleshipBoard:serialize()
     local n = self.n
