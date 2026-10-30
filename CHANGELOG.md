@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.0] - 2026-10-30
+
+### Changed
+- Redesigned play screen: the grid and its clues fill the room the controls
+  leave, with a full-width Undo/Check/Hint/Reveal bar.
+- The status line reads "8×8 · Medium · Ships: 5/20" and wraps in landscape.
+  The "Tap=cycle Hold=water" gesture help moved to the rules, which now
+  describe the cycle correctly (ship, water, empty).
+- Title-bar menu: "Size: 8×8" and "Difficulty: Medium" instead of the bare
+  values.
+- Once the fleet is found (or revealed), the action bar shows "New game" in
+  place of its buttons.
+
+### Fixed
+- Clue numbers overflowed their band on high-DPI screens (their size was
+  scaled by DPI twice); they are now fitted to it.
+- The grid was drawn one clue row too low, leaving an empty band above it and
+  pushing the column clues past the bottom of the board.
+- An applied Hint no longer wipes the saved game (game-common saved it as
+  nil). When a hint fills the last cell, the status now shows the win message.
+
 ## [1.2.2] - 2026-10-07
 
 ### Fixed
