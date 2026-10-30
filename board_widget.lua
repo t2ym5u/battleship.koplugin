@@ -29,6 +29,26 @@ local C_GIVEN   = Blitbuffer.COLOR_GRAY_2
 local C_WRONG   = Blitbuffer.COLOR_GRAY_2
 local C_UNKNOWN = Blitbuffer.COLOR_WHITE
 
+-- Binary-search the largest font size whose rendered ink box for `sample`
+-- fits within (max_w, max_h). A fixed size-to-cell ratio isn't safe:
+-- Font:getFace scales the size by screen DPI, so `cell * 0.5` can render
+-- taller than the cell itself on high-DPI screens.
+local function bsearchFont(font_name, lo, hi, max_w, max_h, sample)
+    local best = lo
+    while lo <= hi do
+        local mid  = math.floor((lo + hi) / 2)
+        local face = Font:getFace(font_name, mid)
+        local m    = RenderText:sizeUtf8Text(0, math.huge, face, sample, true, false)
+        if m.x <= max_w and (m.y_top + m.y_bottom) <= max_h then
+            best = mid
+            lo   = mid + 1
+        else
+            hi   = mid - 1
+        end
+    end
+    return best
+end
+
 -- ---------------------------------------------------------------------------
 -- BattleshipBoardWidget
 -- ---------------------------------------------------------------------------
@@ -53,9 +73,12 @@ function BattleshipBoardWidget:init()
     self.h     = cell * (n + 1)
     self.dimen = Geom:new{ w = self.w, h = self.h }
 
-    local fs = math.max(7, math.floor(cell * 0.5))
+    -- Clue digits must fit inside their clue_w x cell band; size against the
+    -- widest possible clue (a full row/column of ships = n).
+    local fit = math.floor(cell * 0.6)
+    local fs  = bsearchFont("cfont", 7, math.max(7, cell), fit, fit, string.rep("8", #tostring(n)))
     self.num_face = Font:getFace("cfont", fs)
-    self.sym_face = Font:getFace("cfont", math.max(6, math.floor(cell * 0.4)))
+    self.sym_face = Font:getFace("cfont", bsearchFont("cfont", 6, math.max(6, cell), fit, fit, "8"))
 
     self.paint_rect = nil
 
@@ -66,22 +89,24 @@ function BattleshipBoardWidget:init()
 end
 
 local function centeredText(bb, text, face, cx, cy, color)
-    local m = RenderText:sizeUtf8Text(0, cx * 2, face, text, true, false)
+    local m = RenderText:sizeUtf8Text(0, math.huge, face, text, true, false)
     local tx = cx - math.floor(m.x / 2)
-    local ty = cy - math.floor((m.y_bottom - m.y_top) / 2)
+    local ty = cy + math.floor((m.y_top - m.y_bottom) / 2)
     RenderText:renderUtf8Text(bb, tx, ty, face, text, true, false, color or Blitbuffer.COLOR_BLACK)
 end
 
+-- Layout: row clues in a clue_w band on the left, column clues in a clue_w
+-- band below the grid, so the whole thing fits in (n+1) x (n+1) cells.
 function BattleshipBoardWidget:_cellOrigin(r, c)
     local x = self.paint_rect.x + self.clue_w + (c - 1) * self.cell
-    local y = self.paint_rect.y + self.clue_w + (r - 1) * self.cell
+    local y = self.paint_rect.y + (r - 1) * self.cell
     return x, y
 end
 
 function BattleshipBoardWidget:_hitTest(gx, gy)
     if not self.paint_rect then return nil end
     local lx = gx - self.paint_rect.x - self.clue_w
-    local ly = gy - self.paint_rect.y - self.clue_w
+    local ly = gy - self.paint_rect.y
     if lx < 0 or ly < 0 then return nil end
     local c = math.floor(lx / self.cell) + 1
     local r = math.floor(ly / self.cell) + 1
@@ -153,7 +178,7 @@ function BattleshipBoardWidget:paintTo(bb, x, y)
 
     -- Grid lines
     local gx = x + cw
-    local gy = y + cw
+    local gy = y
     local gw = cell * n
     local gh = cell * n
     for i = 0, n do
@@ -168,7 +193,7 @@ function BattleshipBoardWidget:paintTo(bb, x, y)
 
     -- Row clues
     for r = 1, n do
-        local cy = y + cw + (r-1)*cell + math.floor(cell / 2)
+        local cy = y + (r-1)*cell + math.floor(cell / 2)
         local cx = x + math.floor(cw / 2)
         centeredText(bb, tostring(board.row_clues[r] or 0), self.num_face, cx, cy, C_FG)
     end
@@ -176,7 +201,7 @@ function BattleshipBoardWidget:paintTo(bb, x, y)
     -- Col clues
     for c = 1, n do
         local cx = x + cw + (c-1)*cell + math.floor(cell / 2)
-        local cy = y + cw + gh + math.floor(cw / 2)
+        local cy = y + gh + math.floor(cw / 2)
         centeredText(bb, tostring(board.col_clues[c] or 0), self.num_face, cx, cy, C_FG)
     end
 end
