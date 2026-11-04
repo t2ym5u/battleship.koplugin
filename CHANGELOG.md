@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.0] - 2026-11-04
+
+### Changed
+- Opening the game no longer builds a puzzle it then throws away (it was
+  generated even when a saved game was about to be restored).
+
 ## [1.3.3] - 2026-11-03
 
 ### Changed

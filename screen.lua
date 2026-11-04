@@ -56,9 +56,9 @@ function BattleshipScreen:init()
     local state = self.plugin:loadState()
     local n     = self.plugin:getSetting("grid_n",     BattleshipBoard.DEFAULT_N)
     local diff  = self.plugin:getSetting("difficulty", "medium")
-    self.board  = BattleshipBoard:new{ n = n, difficulty = diff }
+    self.board  = BattleshipBoard:new{ n = n, difficulty = diff, empty = true }
     if not self.board:load(state) then
-        -- fresh puzzle
+        self.board:generate()
     end
     ScreenBase.init(self)
 end

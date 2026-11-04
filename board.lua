@@ -111,7 +111,9 @@ function BattleshipBoard:new(opts)
         won        = false,
         undo       = UndoStack:new{ max_size = 500 },
     }, self)
-    obj:generate()
+    -- opts.empty: the caller loads a save or generates itself, so don't
+    -- build a puzzle that would be thrown away.
+    if not opts.empty then obj:generate() end
     return obj
 end
 
