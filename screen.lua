@@ -17,6 +17,7 @@ local VerticalSpan    = require("ui/widget/verticalspan")
 local _               = require("i18n")
 local T               = require("ffi/util").template
 
+local GenProgress           = require("gen_progress")
 local ScreenBase            = require("screen_base")
 local MenuHelper            = require("menu_helper")
 local BattleshipBoard       = lrequire("board")
@@ -31,9 +32,10 @@ Battleship (Bimaru) — Rules
 
 Find the hidden fleet in the grid using the row and column clues.
 
-The fleet consists of ships of various lengths (carrier, battleship, destroyer, submarine, etc.).
+The fleet is always the same: 1 battleship (4 cells), 2 cruisers (3 cells), 3 destroyers (2 cells) and 4 submarines (1 cell).
 Row and column clues show the total number of ship segments in each line.
 Ships are placed horizontally or vertically and cannot touch each other, even diagonally.
+Some cells start revealed (a ship segment or water). Every puzzle has a single solution, found by logic alone.
 
 Tap a cell to cycle it: ship, then water, then empty again. Long-press a cell to mark it as water directly.
 ]])
@@ -43,9 +45,10 @@ Bataille Navale (Bimaru) — Règles
 
 Trouvez la flotte cachée dans la grille à l'aide des indices de lignes et de colonnes.
 
-La flotte comprend des navires de différentes longueurs.
+La flotte est toujours la même : 1 cuirassé (4 cases), 2 croiseurs (3 cases), 3 destroyers (2 cases) et 4 sous-marins (1 case).
 Les indices de lignes et de colonnes indiquent le nombre total de segments de navires dans chaque ligne.
 Les navires sont placés horizontalement ou verticalement et ne peuvent pas se toucher, même en diagonale.
+Certaines cases sont révélées au départ (segment de navire ou eau). Chaque grille a une seule solution, trouvée par la logique seule.
 
 Appuyez sur une case pour la faire passer de navire à eau, puis de nouveau à vide. Appui long pour marquer directement une case comme eau.
 ]]
@@ -58,9 +61,15 @@ function BattleshipScreen:init()
     local diff  = self.plugin:getSetting("difficulty", "medium")
     self.board  = BattleshipBoard:new{ n = n, difficulty = diff, empty = true }
     if not self.board:load(state) then
-        self.board:generate()
+        self:_generate()
     end
     ScreenBase.init(self)
+end
+
+-- Hard can take about a second on an e-reader: show a progress bar (it only
+-- appears once the work has run past a short delay).
+function BattleshipScreen:_generate()
+    GenProgress.run(function(on_progress) self.board:generate(nil, on_progress) end)
 end
 
 -- Solved, or the solution revealed (reveal sets won too, and is one-way).
@@ -169,7 +178,8 @@ end
 function BattleshipScreen:onNewGame()
     local n    = self.plugin:getSetting("grid_n",     BattleshipBoard.DEFAULT_N)
     local diff = self.plugin:getSetting("difficulty", "medium")
-    self.board = BattleshipBoard:new{ n = n, difficulty = diff }
+    self.board = BattleshipBoard:new{ n = n, difficulty = diff, empty = true }
+    self:_generate()
     self.plugin:saveState(self.board:serialize())
     self:buildLayout()
     UIManager:setDirty(self, function() return "ui", self.dimen end)

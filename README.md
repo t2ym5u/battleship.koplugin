@@ -24,11 +24,16 @@ The fleet typically consists of: 1 battleship (4), 2 cruisers (3), 3 destroyers 
 ## Features
 
 - **Multiple grid sizes** — 8×8 (classic), 10×10 (extended)
-- **Three difficulty levels** — Easy (more revealed cells), Medium, Hard
-- **Cell states** — water, ship segment (with automatic edge/corner detection)
-- **Row/column counter** — remaining segments shown and updated in real time
-- **Auto-water** — automatically fills water around completed rows/columns
-- **Check** — highlights contradictions with the clue counts
+- **Three difficulty levels**, each checked by a built-in logic solver, so
+  every puzzle has exactly one solution and never needs a guess:
+  - **Easy** — many cells revealed; row/column counts and "water around a
+    ship" are all you need
+  - **Medium** — fewer reveals; you also count the ships already found
+    (once all destroyers are placed, a two-cell run must grow, …)
+  - **Hard** — fewest reveals; you also work out where the remaining ships
+    can still fit
+- **Cell states** — unknown, ship segment, water
+- **Check** — highlights rows and columns whose ship count does not match the clue
 - **Hint** — two taps: the first says which cell is about to give, the second acts on it. A cell that contradicts the solution is always reported before a fresh one is revealed
 - **Reveal solution** — shows the full solution
 - **Undo** — step back through your moves
@@ -38,14 +43,11 @@ The fleet typically consists of: 1 battleship (4), 2 cruisers (3), 3 destroyers 
 
 | Action | How |
 |--------|-----|
-| Place a ship segment | Tap a cell (in ship mode) |
-| Mark as water | Tap a cell (in water mode) or long-press |
-| Toggle ship / water mode | Tap the **Ship / Water** button |
+| Cycle a cell (ship → water → empty) | Tap it |
+| Mark as water | Long-press |
 | Undo last move | Tap **Undo** |
 | Check progress | Tap **Check** |
-| New game | Tap **New game** |
-| Change difficulty | Tap **Diff** |
-| Show rules | Tap **Rules** |
+| New game, size, difficulty, rules | Title bar menu |
 
 ## Why e-ink friendly?
 
