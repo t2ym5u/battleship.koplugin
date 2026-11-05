@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.0] - 2026-11-05
+
+### Fixed
+- Every puzzle now has exactly one solution and can be solved by logic
+  alone, with no guessing. Cells used to be revealed at random, and most
+  grids (all of them on 10×10 Hard) had several solutions; a built-in
+  logic solver now checks each puzzle and reveals cells where it gets
+  stuck until it can finish the grid.
+- Any grid that keeps every rule (row and column counts, the standard
+  fleet, ships straight and never touching) now counts as solved, not only
+  the stored solution, so a game saved by an older version can still be
+  won the other way.
+
+### Changed
+- The three levels now differ in the reasoning they need, not just in how
+  many cells are revealed: Easy needs only the row/column counts and the
+  water around ships, Medium also counting the ships already found, Hard
+  also working out where the remaining ships can still fit (with fewer
+  reveals).
+- The rules now list the fleet (1 battleship, 2 cruisers, 3 destroyers,
+  4 submarines).
+- A progress bar shows if building a puzzle takes a moment.
+
 ## [1.4.2] - 2026-11-04
 
 ### Fixed

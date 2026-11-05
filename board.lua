@@ -2,6 +2,11 @@ local UndoStack  = require("undo_stack")
 local grid_utils = require("grid_utils")
 local Hint      = require("hint")
 
+-- solver.lua sits next to this file; loaded by path so no other plugin's
+-- module of the same name can stand in for it.
+local _dir = debug.getinfo(1, "S").source:sub(2):match("(.*[/\\])") or "./"
+local Solver = assert(loadfile(_dir .. "solver.lua"))()
+
 local shuffle    = grid_utils.shuffle
 local emptyGrid  = grid_utils.emptyGrid
 local emptyBoolGrid = grid_utils.emptyBoolGrid
@@ -18,8 +23,20 @@ local SIZES     = { 8, 10 }
 local DEFAULT_N = 10
 local DEFAULT_DIFF = "medium"
 
--- Reveal percentages per difficulty
-local REVEAL = { easy = 0.25, medium = 0.15, hard = 0.05 }
+-- Levels. tier: the hardest deductions the puzzle may need (see
+-- solver.lua: 0 basic, 1 fleet counting, 2 where the ships can still go).
+-- Easy keeps every reveal it took to get there; Medium and Hard drop the
+-- ones the solver can do without. A level retries new fleets (a bounded
+-- number of times) until its puzzle really needs its kind of deduction,
+-- and otherwise keeps the hardest one it built.
+local LEVELS = {
+    easy   = { tier = 0, ship_bias = 0.6, minimize = false, attempts = 1,
+               accept = function() return true end },
+    medium = { tier = 1, ship_bias = 0.5, minimize = true, attempts = 6,
+               accept = function(s) return s[1] >= 1 end },
+    hard   = { tier = 2, ship_bias = 0.5, minimize = true, attempts = 6,
+               accept = function(s) return s[2] >= 1 end },
+}
 
 -- ---------------------------------------------------------------------------
 -- Generator helpers
@@ -117,43 +134,129 @@ function BattleshipBoard:new(opts)
     return obj
 end
 
-function BattleshipBoard:generate(diff)
+-- Clue counts of a solution grid.
+local function lineClues(sol, n)
+    local rows, cols = {}, {}
+    for r = 1, n do
+        local cnt = 0
+        for c = 1, n do if sol[r][c] then cnt = cnt + 1 end end
+        rows[r] = cnt
+    end
+    for c = 1, n do
+        local cnt = 0
+        for r = 1, n do if sol[r][c] then cnt = cnt + 1 end end
+        cols[c] = cnt
+    end
+    return rows, cols
+end
+
+-- Builds one puzzle for a fleet: reveals cells, chosen among those the
+-- solver is stuck on, until the solver (limited to the level's deductions)
+-- fills the whole grid -- so the puzzle has one solution and needs no
+-- guessing. Medium and Hard then drop every reveal the solver can do
+-- without. Returns givens (flat: 0 none, 1 water, 2 ship) and solver stats.
+local function buildPuzzle(sol, n, rows, cols, level)
+    local NN = n * n
+    local truth, givens = {}, {}
+    for r = 1, n do
+        for c = 1, n do
+            local i = (r - 1) * n + c
+            truth[i] = sol[r][c] and Solver.SHIP or Solver.WATER
+            givens[i] = Solver.UNK
+        end
+    end
+    local tier = level.tier
+    local ok, st, stats = Solver.solve(n, rows, cols, givens, tier)
+    while not ok do
+        -- Stuck: reveal one of the cells the solver could not decide.
+        local ships, waters = {}, {}
+        for i = 1, NN do
+            if st[i] == Solver.UNK then
+                if truth[i] == Solver.SHIP then ships[#ships + 1] = i else waters[#waters + 1] = i end
+            end
+        end
+        local pick
+        assert(#ships + #waters > 0, "battleship: solver stuck on a full grid")
+        if #ships > 0 and (#waters == 0 or math.random() < level.ship_bias) then
+            pick = ships[math.random(#ships)]
+        else
+            pick = waters[math.random(#waters)]
+        end
+        givens[pick] = truth[pick]
+        -- The deductions only grow with more reveals, so carrying on from
+        -- where the solver stopped reaches the same end as starting over.
+        st[pick] = truth[pick]
+        ok, st = Solver.solve(n, rows, cols, st, tier)
+    end
+    if level.minimize then
+        local list = {}
+        for i = 1, NN do if givens[i] ~= Solver.UNK then list[#list + 1] = i end end
+        shuffle(list)
+        for _, i in ipairs(list) do
+            givens[i] = Solver.UNK
+            if not Solver.solve(n, rows, cols, givens, tier) then givens[i] = truth[i] end
+        end
+    end
+    ok, st, stats = Solver.solve(n, rows, cols, givens, tier)
+    assert(ok, "battleship: unverified puzzle")
+    local count = 0
+    for i = 1, NN do if givens[i] ~= Solver.UNK then count = count + 1 end end
+    stats.reveals = count
+    return givens, stats
+end
+
+-- How hard a built puzzle is, for the level that asked for it (higher is
+-- closer to what the level wants).
+local function fitness(stats, level)
+    if level.tier == 0 then return 0 end
+    return stats[level.tier] * 100 - stats.reveals
+end
+
+function BattleshipBoard:generate(diff, on_progress)
     self.difficulty = diff or self.difficulty
     local n = self.n
-    local sol = generateFleet(n)
-    if not sol then
-        sol = emptyBoolGrid(n, n)
-        -- minimal fallback: one submarine
-        sol[1][1] = true
+    local level = LEVELS[self.difficulty] or LEVELS[DEFAULT_DIFF]
+    local best
+    for attempt = 1, level.attempts do
+        if on_progress then on_progress((attempt - 1) / level.attempts) end
+        local sol = generateFleet(n)
+        if sol then
+            local rows, cols = lineClues(sol, n)
+            local givens, stats = buildPuzzle(sol, n, rows, cols, level)
+            local f = fitness(stats, level)
+            if not best or f > best.f then
+                best = { sol = sol, rows = rows, cols = cols, givens = givens, stats = stats, f = f }
+            end
+            if level.accept(stats, n) then break end
+        end
     end
-    self.solution    = sol
+    if not best then
+        -- generateFleet never fails on 8x8/10x10; this only keeps the
+        -- board usable: a lone submarine, every other cell given.
+        local sol = emptyBoolGrid(n, n)
+        sol[1][1] = true
+        local rows, cols = lineClues(sol, n)
+        local givens = {}
+        for i = 1, n * n do givens[i] = i == 1 and Solver.UNK or Solver.WATER end
+        best = { sol = sol, rows = rows, cols = cols, givens = givens, stats = { [0] = 0, [1] = 0, [2] = 0, reveals = n * n - 1 } }
+    end
+    if on_progress then on_progress(1) end
+
+    self.solution    = best.sol
+    self.row_clues   = best.rows
+    self.col_clues   = best.cols
+    self.stats       = best.stats
     self.marks       = emptyGrid(n, n, MARK_UNKNOWN)
     self.given       = emptyBoolGrid(n, n)
     self.wrong_cells = emptyBoolGrid(n, n)
     self.won         = false
     self.undo:clear()
-
-    -- Row/col clues
-    self.row_clues = {}
-    self.col_clues = {}
-    for r = 1, n do
-        local cnt = 0
-        for c = 1, n do if sol[r][c] then cnt = cnt + 1 end end
-        self.row_clues[r] = cnt
-    end
-    for c = 1, n do
-        local cnt = 0
-        for r = 1, n do if sol[r][c] then cnt = cnt + 1 end end
-        self.col_clues[c] = cnt
-    end
-
-    -- Reveal hints based on difficulty
-    local reveal_prob = REVEAL[self.difficulty] or 0.15
     for r = 1, n do
         for c = 1, n do
-            if math.random() < reveal_prob then
-                self.given[r][c]  = true
-                self.marks[r][c]  = sol[r][c] and MARK_SHIP or MARK_WATER
+            local g = best.givens[(r - 1) * n + c]
+            if g ~= Solver.UNK then
+                self.given[r][c] = true
+                self.marks[r][c] = g == Solver.SHIP and MARK_SHIP or MARK_WATER
             end
         end
     end
@@ -226,29 +329,70 @@ function BattleshipBoard:reveal()
     self.won = true
 end
 
+-- True when `ship(r, c)` describes a grid that keeps every rule: the row
+-- and column counts, ships straight and never touching (not even at a
+-- corner), and exactly the standard fleet.
+local function obeysRules(n, ship, row_clues, col_clues)
+    for r = 1, n do
+        local cnt = 0
+        for c = 1, n do if ship(r, c) then cnt = cnt + 1 end end
+        if cnt ~= (row_clues[r] or 0) then return false end
+    end
+    for c = 1, n do
+        local cnt = 0
+        for r = 1, n do if ship(r, c) then cnt = cnt + 1 end end
+        if cnt ~= (col_clues[c] or 0) then return false end
+    end
+    local need = {}
+    for _, spec in ipairs(FLEET) do need[spec[1]] = spec[2] end
+    for r = 1, n do
+        for c = 1, n do
+            if ship(r, c) then
+                -- Corners touching: never allowed.
+                if (r < n and c > 1 and ship(r + 1, c - 1))
+                    or (r < n and c < n and ship(r + 1, c + 1)) then
+                    return false
+                end
+                local left = c > 1 and ship(r, c - 1)
+                local up   = r > 1 and ship(r - 1, c)
+                if not left and not up then
+                    -- First cell of a ship: measure it.
+                    local right = c < n and ship(r, c + 1)
+                    local down  = r < n and ship(r + 1, c)
+                    if right and down then return false end
+                    local len = 1
+                    if right then
+                        while c + len <= n and ship(r, c + len) do len = len + 1 end
+                    elseif down then
+                        while r + len <= n and ship(r + len, c) do len = len + 1 end
+                    end
+                    if not need[len] or need[len] == 0 then return false end
+                    need[len] = need[len] - 1
+                elseif left and up then
+                    return false
+                end
+            end
+        end
+    end
+    for _, k in pairs(need) do if k ~= 0 then return false end end
+    return true
+end
+
+-- Solved once every cell is marked and the ships keep the rules. Any such
+-- grid counts, not only the stored solution (generated puzzles have just
+-- one, but a game saved by an older version may have had more).
 function BattleshipBoard:_checkWin()
     local n = self.n
     for r = 1, n do
         for c = 1, n do
-            local sol_mark = self.solution[r][c] and MARK_SHIP or MARK_WATER
-            if self.marks[r][c] ~= sol_mark and self.marks[r][c] ~= MARK_UNKNOWN then
-                -- might be wrong but could still be valid without unknown cells
-            end
             if self.marks[r][c] == MARK_UNKNOWN then
                 self.won = false; return
             end
         end
     end
-    -- All cells filled — check if correct
-    for r = 1, n do
-        for c = 1, n do
-            local sol_mark = self.solution[r][c] and MARK_SHIP or MARK_WATER
-            if self.marks[r][c] ~= sol_mark then
-                self.won = false; return
-            end
-        end
-    end
-    self.won = true
+    local marks = self.marks
+    self.won = obeysRules(n, function(r, c) return marks[r][c] == MARK_SHIP end,
+        self.row_clues, self.col_clues)
 end
 
 -- ---------------------------------------------------------------------------
