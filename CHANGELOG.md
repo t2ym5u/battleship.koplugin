@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.6.0] - 2026-11-05
+
+### Added
+- The fleet is now shown on the game screen, as a row of ship glyphs above
+  the status line (two rows in the narrow landscape panel). A ship you have
+  finished, closed off by water or the edge on every open side, turns grey
+  and is struck through, so Medium and Hard's fleet counting no longer
+  means reopening the rules.
+
 ## [1.5.0] - 2026-11-05
 
 ### Fixed

@@ -378,6 +378,50 @@ local function obeysRules(n, ship, row_clues, col_clues)
     return true
 end
 
+-- Ships the player has finished, by length: { [len] = count }. A ship is
+-- finished when its straight run of ship marks is closed at both ends by
+-- water or the edge, and nothing beside it is a ship mark either (so it
+-- cannot still bend or merge). Runs longer than the biggest ship never
+-- count. Givens are in `marks` too, so they count like the player's marks.
+function BattleshipBoard:fleetFound()
+    local n, marks = self.n, self.marks
+    local found = {}
+    for _, spec in ipairs(FLEET) do found[spec[1]] = 0 end
+    local function isShip(r, c)
+        return r >= 1 and r <= n and c >= 1 and c <= n and marks[r][c] == MARK_SHIP
+    end
+    local function closed(r, c)
+        return r < 1 or r > n or c < 1 or c > n or marks[r][c] == MARK_WATER
+    end
+    for r = 1, n do
+        for c = 1, n do
+            if isShip(r, c) and not isShip(r, c - 1) and not isShip(r - 1, c) then
+                local horiz = isShip(r, c + 1)
+                local dr, dc = 0, 1
+                if not horiz then dr, dc = 1, 0 end
+                local len = 1
+                while isShip(r + dr * len, c + dc * len) do len = len + 1 end
+                -- Closed at both ends, and no ship mark on either side.
+                local ok = closed(r - dr, c - dc) and closed(r + dr * len, c + dc * len)
+                if ok and len == 1 then
+                    -- A single cell must be closed on all four sides.
+                    ok = closed(r, c - 1) and closed(r, c + 1) and closed(r + 1, c)
+                end
+                if ok then
+                    for k = 0, len - 1 do
+                        local rr, cc = r + dr * k, c + dc * k
+                        if isShip(rr + dc, cc + dr) or isShip(rr - dc, cc - dr) then
+                            ok = false; break
+                        end
+                    end
+                end
+                if ok and found[len] then found[len] = found[len] + 1 end
+            end
+        end
+    end
+    return found
+end
+
 -- Solved once every cell is marked and the ships keep the rules. Any such
 -- grid counts, not only the stored solution (generated puzzles have just
 -- one, but a game saved by an older version may have had more).
