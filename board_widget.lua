@@ -206,4 +206,113 @@ function BattleshipBoardWidget:paintTo(bb, x, y)
     end
 end
 
+-- ---------------------------------------------------------------------------
+-- FleetWidget: the fleet as ship glyphs, one block per cell. Ships still to
+-- find are solid black; finished ones (BattleshipBoard:fleetFound) turn light
+-- grey with a line through them. One row when it fits at a readable size,
+-- else two (the big ships, then the small ones), e.g. the landscape panel.
+-- ---------------------------------------------------------------------------
+
+local Screen = require("device").screen
+
+local FleetWidget = InputContainer:extend{
+    board     = nil,
+    max_width = 0,
+}
+
+-- Ship lengths in drawing order, one entry per ship: 4 3 3 2 2 2 1 1 1 1.
+local function fleetShips()
+    local ships = {}
+    for _, spec in ipairs(BattleshipBoard.FLEET) do
+        for _ = 1, spec[2] do ships[#ships + 1] = spec[1] end
+    end
+    return ships
+end
+
+-- Width of a row of ships with block size u (blocks touch, 1px seam drawn
+-- inside; one block of space between ships).
+local function rowWidth(row, u)
+    local w = 0
+    for i, len in ipairs(row) do
+        w = w + len * u
+        if i > 1 then w = w + u end
+    end
+    return w
+end
+
+function FleetWidget:init()
+    local ships = fleetShips()
+    local max_u = Screen:scaleBySize(14)
+    local min_u = Screen:scaleBySize(11)
+    local u = math.min(max_u, math.floor(self.max_width / rowWidth(ships, 1)))
+    if u >= min_u then
+        self.rows = { ships }
+    else
+        -- Big ships (4, 3) on the first row, the small ones below.
+        local top, bottom = {}, {}
+        for _, len in ipairs(ships) do
+            if len >= 3 then top[#top + 1] = len else bottom[#bottom + 1] = len end
+        end
+        self.rows = { top, bottom }
+        local widest = math.max(rowWidth(top, 1), rowWidth(bottom, 1))
+        u = math.min(max_u, math.floor(self.max_width / widest))
+    end
+    self.u = math.max(4, u)
+    self.row_gap = math.floor(self.u * 0.6)
+    local w = 0
+    for _, row in ipairs(self.rows) do w = math.max(w, rowWidth(row, self.u)) end
+    self.w = w
+    self.h = #self.rows * self.u + (#self.rows - 1) * self.row_gap
+    self.dimen = Geom:new{ w = self.w, h = self.h }
+end
+
+function FleetWidget:getSize()
+    return Geom:new{ w = self.w, h = self.h }
+end
+
+function FleetWidget:refresh()
+    UIManager:setDirty(self, function()
+        return "ui", self.paint_rect or self.dimen
+    end)
+end
+
+function FleetWidget:paintTo(bb, x, y)
+    self.paint_rect = Geom:new{ x = x, y = y, w = self.w, h = self.h }
+    local u = self.u
+    -- Finished ships of each length, greyed from the right of each group.
+    local found = self.board:fleetFound()
+    local remaining = {}
+    for _, spec in ipairs(BattleshipBoard.FLEET) do
+        remaining[spec[1]] = spec[2] - math.min(spec[2], found[spec[1]] or 0)
+    end
+    bb:paintRect(x, y, self.w, self.h, C_BG)
+    local seen = {}
+    for ri, row in ipairs(self.rows) do
+        local rx = x + math.floor((self.w - rowWidth(row, u)) / 2)
+        local ry = y + (ri - 1) * (u + self.row_gap)
+        for _, len in ipairs(row) do
+            seen[len] = (seen[len] or 0) + 1
+            local done = seen[len] > remaining[len]
+            local sw = len * u
+            if done then
+                bb:paintRect(rx, ry, sw, u, Blitbuffer.COLOR_GRAY_D)
+                bb:paintBorder(rx, ry, sw, u, 1, Blitbuffer.COLOR_GRAY_9)
+                for k = 1, len - 1 do
+                    drawLine(bb, rx + k * u, ry, 1, u, Blitbuffer.COLOR_GRAY_9)
+                end
+                drawLine(bb, rx, ry + math.floor(u / 2), sw, math.max(1, math.floor(u / 8)), C_FG)
+            else
+                bb:paintRect(rx, ry, sw, u, C_FG)
+                -- Seams between the blocks, so lengths can be counted.
+                for k = 1, len - 1 do
+                    drawLine(bb, rx + k * u, ry + 2, 1, u - 4, C_BG)
+                end
+            end
+            rx = rx + sw + u
+        end
+    end
+end
+
+BattleshipBoardWidget.FleetWidget = FleetWidget
+
 return BattleshipBoardWidget

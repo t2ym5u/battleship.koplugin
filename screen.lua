@@ -95,8 +95,14 @@ function BattleshipScreen:buildLayout()
 
     local controls_w = self:getControlsWidth()
     self.status_text:setMaxWidth(controls_w)
+    self.fleet_widget = BattleshipBoardWidget.FleetWidget:new{
+        board     = self.board,
+        max_width = controls_w,
+    }
     local controls = VerticalGroup:new{
         align = "center",
+        self.fleet_widget,
+        VerticalSpan:new{ width = Size.span.vertical_large },
         self.status_text,
         VerticalSpan:new{ width = Size.span.vertical_large },
         self:buildActionBar({
@@ -243,6 +249,7 @@ function BattleshipScreen:updateStatus(msg)
             T(_("Ships: %1/%2"), ships, total_ship_cells))
     end
     ScreenBase.updateStatus(self, status)
+    if self.fleet_widget then self.fleet_widget:refresh() end
     -- Every mark, undo, hint and reveal ends here.
     self:refreshActionBar()
 end

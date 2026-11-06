@@ -178,4 +178,61 @@ describe("BattleshipBoard", function()
             assert.are.same(saved, b:serialize())
         end)
     end)
+
+    describe("fleetFound", function()
+        -- Builds a board from rows of "S" (ship), "~" (water), "." (unknown).
+        local function boardFrom(rows)
+            local b = Board:new{ n = #rows, empty = true }
+            b.n = #rows
+            b.marks = {}
+            for r, line in ipairs(rows) do
+                b.marks[r] = {}
+                for c = 1, #line do
+                    local ch = line:sub(c, c)
+                    b.marks[r][c] = ch == "S" and Board.MARK_SHIP
+                        or ch == "~" and Board.MARK_WATER or Board.MARK_UNKNOWN
+                end
+            end
+            return b
+        end
+
+        it("counts only ships closed by water or the edge", function()
+            local f = boardFrom{
+                "SSSS~S",
+                "~~~~~.",
+                "S~SS~~",
+                "~~~~~S",
+                "SS.~~S",
+                "~~~~~S",
+            }:fleetFound()
+            -- Row 1: battleship closed by the edge and water; the cell at
+            -- (1,6) has an unknown below it, so it is not finished yet.
+            assert.are.equal(1, f[4])
+            -- (3,1) sub and (3,3)-(3,4) destroyer are closed; (5,1)-(5,2)
+            -- is open on the right; (4,6)-(6,6) is a closed cruiser.
+            assert.are.equal(1, f[1])
+            assert.are.equal(1, f[2])
+            assert.are.equal(1, f[3])
+        end)
+
+        it("never counts a bent or touching shape", function()
+            local f = boardFrom{
+                "SS~~",
+                "S~~~",
+                "~~~~",
+                "~~~~",
+            }:fleetFound()
+            assert.are.same({ [1] = 0, [2] = 0, [3] = 0, [4] = 0 }, f)
+        end)
+
+        it("counts the whole fleet once the solution is revealed", function()
+            math.randomseed(3)
+            local b = Board:new{ n = 8 }
+            b:reveal()
+            local f = b:fleetFound()
+            for _, spec in ipairs(Board.FLEET) do
+                assert.are.equal(spec[2], f[spec[1]])
+            end
+        end)
+    end)
 end)

@@ -32,6 +32,8 @@ The fleet typically consists of: 1 battleship (4), 2 cruisers (3), 3 destroyers 
     (once all destroyers are placed, a two-cell run must grow, …)
   - **Hard** — fewest reveals; you also work out where the remaining ships
     can still fit
+- **Fleet display** — the ships still to find are shown under the grid;
+  each one you finish (closed off by water or the edge) is greyed out
 - **Cell states** — unknown, ship segment, water
 - **Check** — highlights rows and columns whose ship count does not match the clue
 - **Hint** — two taps: the first says which cell is about to give, the second acts on it. A cell that contradicts the solution is always reported before a fresh one is revealed
